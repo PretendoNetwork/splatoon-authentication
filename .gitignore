@@ -13,3 +13,9 @@
 
 # custom
 build
+
+# built server
+splatoon-authentication
+
+# logs
+log/*
