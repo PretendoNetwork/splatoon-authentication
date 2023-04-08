@@ -2,20 +2,25 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	nex "github.com/PretendoNetwork/nex-go"
-	nexauth "github.com/PretendoNetwork/nex-protocols-common-go/authentication"
+	"github.com/PretendoNetwork/nex-protocols-common-go/authentication"
 )
 
 var nexServer *nex.Server
 
 func main() {
 	nexServer = nex.NewServer()
-	nexServer.SetPrudpVersion(1)
-	nexServer.SetNexVersion(30500)
-	nexServer.SetKerberosKeySize(32)
+	nexServer.SetPRUDPVersion(1)
+	nexServer.SetPRUDPProtocolMinorVersion(2)
+	nexServer.SetDefaultNEXVersion(&nex.NEXVersion{
+		Major: 3,
+		Minor: 8,
+		Patch: 3,
+	})
+	nexServer.SetKerberosPassword(os.Getenv("KERBEROS_PASSWORD"))
 	nexServer.SetAccessKey("6f599f81")
-	nexServer.SetPingTimeout(20)
 
 	nexServer.On("Data", func(packet *nex.PacketV1) {
 		request := packet.RMCRequest()
@@ -26,11 +31,21 @@ func main() {
 		fmt.Println("===============")
 	})
 
-	authenticationServer := nexauth.NewCommonAuthenticationProtocol(nexServer)
-	authenticationServer.SetSecureStationURL(nex.NewStationURL("prudps:/address=159.203.102.56;port=61003;CID=1;PID=2;sid=1;stream=10;type=2"))
-	authenticationServer.SetBuildName("Pretendo Splatoon - Commit")
-	authenticationServer.PasswordFromPID(getNEXAccountByPID)
-	_ = authenticationServer
+	authenticationProtocol := authentication.NewCommonAuthenticationProtocol(nexServer)
+
+	secureStationURL := nex.NewStationURL("")
+	secureStationURL.SetScheme("prudps")
+	secureStationURL.SetAddress(os.Getenv("SECURE_SERVER_LOCATION"))
+	secureStationURL.SetPort(os.Getenv("SECURE_SERVER_PORT"))
+	secureStationURL.SetCID("1")
+	secureStationURL.SetPID("2")
+	secureStationURL.SetSID("1")
+	secureStationURL.SetStream("10")
+	secureStationURL.SetType("2")
+
+	authenticationProtocol.SetSecureStationURL(secureStationURL)
+	authenticationProtocol.SetBuildName("Pretendo Splatoon Auth")
+	authenticationProtocol.SetPasswordFromPIDFunction(passwordFromPID)
 
 	nexServer.Listen(":61002")
 }
